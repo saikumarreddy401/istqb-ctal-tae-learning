@@ -1,0 +1,75 @@
+istqb-ctal-tae-learning/
+│
+├── README.md
+├── .gitignore
+│
+├── chapter-01-intro-objectives/
+│   ├── notes.md
+│   ├── advantages_disadvantages.md
+│   └── sdlc_models_comparison.md
+│
+├── chapter-02-preparing-automation/
+│   ├── notes.md
+│   ├── infrastructure_config.md
+│   ├── tool_evaluation_template.md
+│   └── sut_analysis_worksheet.md
+│
+├── chapter-03-taa-architecture/
+│   ├── notes.md
+│   ├── gtaa_diagram.md
+│   ├── taf_layers_example/
+│   │   ├── core_libraries/
+│   │   ├── business_logic/
+│   │   └── test_scripts/
+│   └── design_patterns/
+│       ├── page_object_model.py
+│       ├── facade_pattern.py
+│       └── singleton_pattern.py
+│
+├── chapter-04-implementing-automation/
+│   ├── notes.md
+│   ├── pilot_checklist.md
+│   ├── deployment_risks.md
+│   └── clean_code_examples/
+│       └── naming_conventions.py
+│
+├── chapter-05-cicd-deployment/
+│   ├── notes.md
+│   ├── pipeline_examples/
+│   │   ├── github_actions_workflow.yml
+│   │   └── pipeline_strategy.md
+│   └── contract_testing_example/
+│
+├── chapter-06-reporting-metrics/
+│   ├── notes.md
+│   ├── metrics_dashboard_design.md
+│   └── data_collection_methods.md
+│
+├── chapter-07-verifying-tas/
+│   ├── notes.md
+│   ├── static_analysis_examples/
+│   └── verification_checklist.md
+│
+├── chapter-08-continuous-improvement/
+│   ├── notes.md
+│   ├── improvement_backlog_template.md
+│   └── schema_validation_example/
+│
+├── automotive-domain/
+│   ├── ecu_test_concepts.md
+│   ├── can_signal_validation_patterns.md
+│   ├── hil_automation_architecture.md
+│   └── tool_comparison_ecutest_vs_others.md
+│
+├── exam-prep/
+│   ├── practice_questions.md
+│   ├── keyword_glossary.md
+│   └── scenario_bank.md
+│
+└── framework-prototype/
+    ├── README.md
+    ├── core/
+    ├── business_logic/
+    ├── tests/
+    └── requirements.txt
+    
