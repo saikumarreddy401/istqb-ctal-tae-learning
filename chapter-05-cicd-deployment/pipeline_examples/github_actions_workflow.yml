@@ -1,0 +1,111 @@
+# GitHub Actions CI/CD Pipeline
+# Reference: CTAL-TAE v2.0 Section 5.1.1
+# Purpose: Demonstrate test level integration in pipeline
+# Project: ABS ECU Test Automation (simplified example)
+
+name: ABS ECU Test Automation Pipeline
+
+on:
+  push:
+    branches: [ main, feature/*, release/* ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Nightly regression at 02:00 UTC
+    - cron: '0 2 * * *'
+
+jobs:
+
+  # ─── BUILD PHASE ─────────────────────────────────────────
+  # Component tests and TAF configuration tests
+  # Runs on every commit — must be fast
+
+  build-and-component-test:
+    name: Build Phase — Component Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run static analysis
+        run: pylint framework_prototype/ --fail-under=8.0
+
+      - name: Run TAF configuration tests
+        # Verify all required files and paths exist
+        run: pytest tests/config/ -v --tb=short
+
+      - name: Run TAF unit tests
+        # Test business logic without hardware
+        run: pytest tests/unit/ -v --tb=short
+
+      - name: Run SIL component tests
+        # Software-in-the-loop — no HIL hardware needed
+        run: pytest tests/sil/ -v --tb=short
+
+  # ─── DEPLOYMENT PHASE ────────────────────────────────────
+  # System tests on HIL rack
+  # Runs after successful build phase only
+
+  hil-system-tests:
+    name: Deployment Phase — HIL System Tests
+    needs: build-and-component-test
+    runs-on: [ self-hosted, hil-rack ]
+    # Only runs on self-hosted runner with HIL rack access
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Verify HIL rack health
+        run: python scripts/verify_hil_rack_health.py
+
+      - name: Verify ECU firmware version
+        run: python scripts/verify_ecu_firmware.py
+
+      - name: Run system integration tests
+        run: pytest tests/system/ -v --tb=short
+             --junitxml=results/system_test_results.xml
+
+      - name: Run CAN signal validation
+        run: pytest tests/can_validation/ -v
+             --junitxml=results/can_validation_results.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: hil-test-results
+          path: results/
+
+  # ─── NIGHTLY REGRESSION ──────────────────────────────────
+  # Full regression suite — runs on schedule only
+
+  nightly-regression:
+    name: Nightly Full Regression
+    if: github.event_name == 'schedule'
+    runs-on: [ self-hosted, hil-rack ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run full ABS regression suite
+        run: pytest tests/ -v
+             --junitxml=results/nightly_regression.xml
+             -m "regression"
+
+      - name: Run all calibration variants
+        run: pytest tests/calibration/
+             --junitxml=results/calibration_results.xml
+
+      - name: Send results notification
+        run: python scripts/send_results_email.py
+             --results results/nightly_regression.xml
