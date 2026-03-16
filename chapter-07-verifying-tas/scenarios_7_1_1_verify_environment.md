@@ -1,469 +1,356 @@
-# Sub-Chapter 7.1.4 — Static Analysis of Testware
+# Scenarios — Sub-Chapter 7.1.1 — Verifying the Test Automation Environment
 
-> **Syllabus Reference:** TAE-7.1.4
+> **Syllabus Reference:** TAE-7.1.1
 > **Cognitive Level:** K3 — Apply
-> **Chapter:** 7 — Verifying the Test Automation Solution
+> **File:** scenarios_7_1_1_verify_environment.md
 > **Status:** ✅ Complete
 
 ---
 
-## 1. Concept Explanation
+## Scenario 1 — Missing Smoke Test (K3)
 
-### What Static Analysis Is
+### Situation
 
-Static analysis examines source code without
-executing it. It finds defects, style violations,
-complexity problems, and security issues by
-analysing the code structure directly.
+Your ABS nightly regression suite starts at 22:00.
+At 00:14 the pipeline fails with:
+```
+KeyError: 'can_interface'
+File: core/can_signal_monitor.py, line 47
+```
 
-> ⭐ **Static analysis applied to testware is
-> identical in principle to static analysis
-> applied to production code.**
-> The TAF is software. It must be held to the
-> same code quality standards as the SUT.
+The suite ran for 134 minutes before this error.
+409 test results were already written to the
+JUnit XML — all marked as passed.
 
-Static analysis finds what dynamic testing misses:
-- Code that is never executed but contains defects
-- Style inconsistencies that reduce maintainability
-- Complexity that increases defect probability
-- Dead code, unused imports, undefined variables
+Investigation reveals the environment config file
+for the integration rack was updated by the
+infrastructure team at 21:45. They renamed
+`can_interface` to `can_channel` in the YAML.
+The smoke test does not exist.
 
-### Why Testware Specifically Needs Static Analysis
+### Question
 
-| Reason | Detail |
-|--------|--------|
-| TAF is rarely reviewed as rigorously as production code | Static analysis compensates for lighter manual review |
-| TAF grows over years without refactoring | Complexity accumulates — static analysis detects it |
-| Multiple TAEs contribute with different styles | Style enforcement ensures consistency |
-| TAF defects cause silent false negatives | Earlier detection = fewer missed product defects |
+Identify every problem this scenario exposes and
+specify exactly what a smoke test would have
+prevented, including the pipeline change required.
 
----
+### Answer
 
-## 2. Categories of Static Analysis
+**Problems exposed:**
 
-### Category 1 — Style and Formatting
+| Problem | Impact |
+|---------|--------|
+| No environment smoke test | Config error not detected until mid-suite |
+| 134 minutes of compute wasted | Pipeline time lost on invalid run |
+| 409 results marked passed without valid config | Results are invalid — cannot be used |
+| Config change not communicated | Infrastructure change broke pipeline silently |
 
-Enforces consistent code style across the TAF.
+**What a smoke test prevents:**
 
-| Tool (Python) | What It Checks |
-|--------------|---------------|
-| `flake8` | PEP8 style: line length, spacing, naming |
-| `black` | Automatic code formatting |
-| `isort` | Import ordering and grouping |
-| `pylint` | Style + logic warnings |
+> ⭐ A smoke test running at pipeline start would
+> have executed `validate_environment_config()`
+> before any test case ran. The missing `can_interface`
+> key would have been detected in under 30 seconds.
+> Zero test cases would have executed.
+> Zero invalid results would have been written.
+
+**Smoke test implementation for this scenario:**
 ```python
-# VIOLATION — flake8 E501 line too long, E302 missing blank lines
-def test_abs_wheel_speed(can_monitor,simulator,uds_client,arxml_loader,config):
-    simulator.set_vehicle_speed(80.0);simulator.apply_brake(150)
-    result=can_monitor.read_signal("WheelSpeedFL")
-    assert result==80.0
+def validate_environment_config(config_path: str) -> None:
+    """Validate all required config keys exist before suite runs."""
+    required_keys = [
+        "can_interface",   # ← Would have caught this immediately
+        "ecu_ip",
+        "uds_port",
+        "arxml_path",
+        "calibration_data"
+    ]
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
 
-# CORRECT — PEP8 compliant
-def test_abs_wheel_speed(
-    can_monitor,
-    simulator,
-    uds_client,
-    arxml_loader,
-    config
-):
-    """Verify WheelSpeedFL matches vehicle speed during normal braking."""
-    simulator.set_vehicle_speed(80.0)
-    simulator.apply_brake(pressure_bar=150)
-
-    result = can_monitor.read_signal("WheelSpeedFL")
-
-    assert result == pytest.approx(80.0, abs=0.5), (
-        f"WheelSpeedFL={result}, expected 80.0±0.5 km/h"
-    )
+    missing = [k for k in required_keys if k not in config]
+    if missing:
+        raise EnvironmentError(
+            f"Config validation failed. Missing keys: {missing}\n"
+            f"Check: {config_path}"
+        )
 ```
 
-### Category 2 — Logical Defects and Code Smells
-
-Finds real defects in code that executes incorrectly
-or will fail under certain conditions.
-
-| Issue | Example | Risk |
-|-------|---------|------|
-| Unused variable | `result = can_monitor.read()` then never used | Silent — assertion never executes |
-| Bare except clause | `except:` catches everything including KeyboardInterrupt | Masks real errors |
-| Mutable default argument | `def setup(config={})` | State shared between calls |
-| Unreachable code | Code after `return` statement | Dead code — never executes |
-| Comparison to None with `==` | `if result == None` | Should be `is None` |
-```python
-# DEFECT — unused variable means assertion never executes
-def test_abs_activation_defective():
-    simulator.apply_brake(150)
-    result = can_monitor.read_signal("ABSActivationFlag")
-    # ← result assigned but never asserted
-    # Static analysis: W0612 unused-variable
-    # Dynamic testing: test PASSES silently — false negative
-
-# DEFECT — bare except masks all errors
-def test_uds_response_defective():
-    try:
-        response = uds_client.read_data_by_identifier(0xF401)
-        assert response.value > 0
-    except:
-        pass  # ← Catches everything — test always passes
-    # Static analysis: W0702 bare-except
-    # Dynamic testing: test passes even when UDS throws exception
-
-# CORRECT — specific exception handling
-def test_uds_response_correct():
-    response = uds_client.read_data_by_identifier(0xF401)
-    assert response.positive_response_code == 0x62
-    assert response.value > 0
-```
-
-> ⭐ **The unused variable pattern is the most
-> dangerous static analysis finding in testware.**
-> A variable assigned but never used in an assertion
-> means the assertion does not exist. The test
-> produces a false negative on every run.
-
-### Category 3 — Complexity Analysis
-
-High complexity correlates with high defect probability.
-Measures cyclomatic complexity — the number of
-independent paths through a function.
-
-| Complexity Score | Interpretation | Action |
-|-----------------|---------------|--------|
-| 1–5 | Simple — low risk | No action |
-| 6–10 | Moderate — review recommended | Consider refactoring |
-| 11–15 | Complex — refactoring advised | Refactor before release |
-| 16+ | Very complex — high defect risk | Mandatory refactoring |
-```python
-# HIGH COMPLEXITY — cyclomatic complexity = 12
-# Too many branches — hard to test, high defect risk
-def validate_abs_response(response, config, mode, rack_id):
-    if response is None:
-        if config.get("strict_mode"):
-            raise ValueError("Null response in strict mode")
-        else:
-            return False
-    if mode == "extended":
-        if rack_id == "rack_1":
-            if response.value > config["threshold_rack1"]:
-                return True
-            elif response.value == 0:
-                if config.get("allow_zero"):
-                    return True
-                return False
-        elif rack_id == "rack_2":
-            # ... more branches
-    # ... continues
-
-# REFACTORED — cyclomatic complexity = 3
-def validate_abs_response(response, threshold: float) -> bool:
-    """Validate ABS response value against threshold."""
-    if response is None:
-        return False
-    return response.value > threshold
-```
-
-### Category 4 — Security and Dependency Analysis
-
-Checks for known vulnerabilities in dependencies
-and insecure coding patterns.
-
-| Tool | What It Checks |
-|------|---------------|
-| `bandit` | Python security issues — hardcoded passwords, SQL injection |
-| `safety` | Known CVEs in installed packages |
-| `pip-audit` | Dependency vulnerability audit |
-```bash
-# Check for security issues in TAF code
-bandit -r framework-prototype/ -ll
-
-# Check dependencies for known vulnerabilities
-safety check -r requirements.txt
-```
-
-> In automotive TAF, security analysis of testware
-> is relevant when the TAF connects to ECU diagnostic
-> interfaces, cloud reporting systems, or external
-> APIs. Hardcoded credentials in test configuration
-> files are a common security finding.
-
----
-
-## 3. Static Analysis Tools for Python TAF
-
-| Tool | Category | Command | Pipeline Integration |
-|------|---------|---------|---------------------|
-| `flake8` | Style + logical | `flake8 src/ tests/` | Fast — runs in seconds |
-| `pylint` | Style + logic + complexity | `pylint src/ tests/` | Slower — detailed output |
-| `mypy` | Type checking | `mypy src/` | Catches type errors |
-| `radon` | Complexity metrics | `radon cc src/ -s` | Reports per-function complexity |
-| `bandit` | Security | `bandit -r src/` | Security-focused |
-| `black --check` | Formatting | `black --check src/` | Formatting enforcement |
-
-### Configuration — `.flake8`
-```ini
-# .flake8 — project-wide style configuration
-[flake8]
-max-line-length = 100
-max-complexity = 10
-exclude =
-    .git,
-    __pycache__,
-    build/
-ignore =
-    E203,  # whitespace before ':'
-    W503   # line break before binary operator
-per-file-ignores =
-    tests/*:S101  # allow assert in test files
-```
-
-### Configuration — `pyproject.toml`
-```toml
-# pyproject.toml — pylint and mypy configuration
-[tool.pylint.messages_control]
-disable = [
-    "missing-module-docstring",  # Not required for test files
-    "too-few-public-methods"     # Single-method test classes allowed
-]
-
-[tool.pylint.design]
-max-complexity = 10
-max-line-length = 100
-
-[tool.mypy]
-python_version = "3.11"
-warn_unused_imports = true
-warn_return_any = true
-disallow_untyped_defs = true
-```
-
----
-
-## 4. Static Analysis in the CI/CD Pipeline
-
-> ⭐ Static analysis must run in the build pipeline
-> on every commit — not as an occasional manual step.
-> Pipeline enforcement ensures no violation is
-> committed without detection.
+**Pipeline change required:**
 ```yaml
-# GitHub Actions — static analysis stage for TAF
 jobs:
-  static_analysis:
-    runs-on: ubuntu-latest
+  verify_environment:
     steps:
-      - uses: actions/checkout@v3
+      - name: Validate config keys
+        run: python scripts/validate_config.py
 
-      - name: Install analysis tools
-        run: pip install flake8 pylint mypy bandit radon black
-
-      - name: Check code formatting
-        run: black --check framework-prototype/ tests/
-
-      - name: Run flake8 style check
-        run: flake8 framework-prototype/ tests/
-          --max-line-length=100
-          --max-complexity=10
-
-      - name: Run pylint
-        run: pylint framework-prototype/
-          --fail-under=8.0  # Score out of 10 — fail below 8.0
-
-      - name: Run type checking
-        run: mypy framework-prototype/
-          --ignore-missing-imports
-
-      - name: Run security check
-        run: bandit -r framework-prototype/ -ll
-
-      - name: Check complexity
-        run: radon cc framework-prototype/ -s -n C
-          # Report functions with complexity grade C or worse
-
-  run_taf_tests:
-    needs: static_analysis  # ← Tests only run if analysis passes
-    steps:
-      - name: Run TAF unit tests
-        run: pytest tests/taf_unit_tests/
+  run_tests:
+    needs: verify_environment   # ← Never runs if env fails
 ```
 
-> The `needs: static_analysis` dependency means
-> a TAF with style violations, unused variables,
-> or security issues cannot be used for testing.
-> This is enforcement — not a suggestion.
+> Without `needs: verify_environment`, the smoke
+> test runs in parallel with or after the suite.
+> The dependency enforces the sequence — not just
+> the existence of the check.
 
 ---
 
-## 5. Applying Static Analysis Results
+## Scenario 2 — New HIL Rack Discrepancy (K3)
 
-### Severity Classification
+### Situation
 
-Not all findings are equal. Define severity levels
-to prioritise action:
+A second HIL rack (Rack-2) is added to the CI
+pipeline. First nightly run on Rack-2 produces:
 
-| Severity | Examples | Pipeline Action |
-|----------|---------|----------------|
-| Critical | Unused variable in assertion, bare except, security vulnerability | Block pipeline immediately |
-| High | Cyclomatic complexity > 15, undefined name | Block pipeline |
-| Medium | Line length violation, missing docstring | Warning — does not block |
-| Low | Import ordering, minor style | Informational only |
+| Suite | Rack-1 | Rack-2 |
+|-------|--------|--------|
+| ABS regression | 97% | 71% |
 
-> ⭐ Critical findings in testware are any finding
-> that could produce a false negative — a test
-> that passes when it should fail. These must
-> block the pipeline without exception.
+All 26% failures on Rack-2 involve CAN signal
+reading — signals return zero or timeout.
+No product changes were made. Same firmware,
+same testware, same config file.
 
-### Baseline Management
+### Question
 
-When introducing static analysis to an existing
-codebase with many existing violations:
+Define the environment verification sequence you
+would perform to diagnose the discrepancy.
+List each check in the order you would perform it,
+the expected result, and what each result tells you.
 
-| Approach | How It Works | When To Use |
-|----------|-------------|------------|
-| Fix all violations first | Full cleanup before enforcement | Small codebase, dedicated sprint |
-| Baseline file | Record existing violations — only new ones block | Large legacy codebase |
-| Incremental enforcement | Enforce on new files only initially | Ongoing migration |
-```bash
-# Generate baseline — existing violations recorded, not blocked
-flake8 framework-prototype/ --statistics > .flake8_baseline
+### Answer
 
-# Future runs compare against baseline
-# Only new violations above baseline block the pipeline
-```
+| Step | Check | Tool / Method | Expected | If Different |
+|------|-------|--------------|---------|-------------|
+| 1 | CAN interface detected by OS | `python -c "import can; print(can.detect_available_configs())"` | Interface appears in list | Interface not installed or wrong driver |
+| 2 | CAN bus active — send test frame | `can.send()` + `can.recv()` loopback | Echo received < 10ms | Hardware fault or wrong baud rate |
+| 3 | ECU reachable via UDS | UDS default session request | Positive response 0x50 0x01 | ECU not booted, wrong IP |
+| 4 | ECU firmware version correct | UDS DID 0xF189 | Matches `expected_sut_version` in config | Wrong firmware on Rack-2 ECU |
+| 5 | ARXML version matches firmware | Parse ARXML header vs UDS DID | Version strings match | Stale ARXML on Rack-2 |
+| 6 | CAN bus baud rate | CANalyzer bus statistics | 500 kBit/s | Rack-2 configured at wrong baud rate |
+| 7 | CAN bus load at idle | CANalyzer message rate | < 5% before test | Bus noise from other device on network |
 
----
+> ⭐ Step 6 is the most likely root cause here.
+> If Rack-2 CAN interface baud rate is 250 kBit/s
+> and the ECU transmits at 500 kBit/s, all signal
+> reads will fail — producing exactly the symptom
+> described (zero or timeout on all CAN signals).
 
-## 6. Automotive Domain — Static Analysis for TAF
-
-### ECUTest Python API — Common Static Analysis Findings
-
-When writing ECUTest-integrated Python automation,
-common static analysis findings include:
-
-| Finding | Code Pattern | Risk |
-|---------|-------------|------|
-| Unchecked return value | `ecu_test.execute_test_case("abs_test")` without checking result | Execution failure silently ignored |
-| Hardcoded file path | `arxml_path = "C:\\Users\\ioa1cob\\abs.arxml"` | Works on one machine only |
-| Missing timeout | `can_bus.wait_for_message(0x1A0)` with no timeout parameter | Test hangs indefinitely |
-| Magic number | `assert signal_value == 5000` | Meaning unclear — should be named constant |
+**Implementation — add to smoke test:**
 ```python
-# VIOLATIONS — static analysis catches all four
-def test_abs_signal_defective():
-    ecu_test.execute_test_case("abs_wheel_speed")  # W0611 return not checked
-    arxml = load_arxml("C:\\Users\\ioa1cob\\config\\abs.arxml")  # S603 hardcoded path
-    msg = can_bus.wait_for_message(0x1A0)  # missing timeout — hangs
-    assert msg.data[0] == 5000  # W0104 magic number
-
-# CORRECT — all violations resolved
-WHEEL_SPEED_FL_RAW_50KMH = 5000  # Named constant — meaning clear
-
-def test_abs_signal_correct(config: dict) -> None:
-    """Verify WheelSpeedFL raw value at 50 km/h."""
-    result = ecu_test.execute_test_case("abs_wheel_speed")
-    assert result.passed, f"ECUTest execution failed: {result.error}"
-
-    arxml = load_arxml(config["arxml_path"])  # From config — not hardcoded
-    msg = can_bus.wait_for_message(
-        message_id=0x1A0,
-        timeout_seconds=2.0  # Explicit timeout
+def verify_can_baud_rate(config: dict) -> None:
+    """Verify CAN bus baud rate matches config."""
+    bus = can.interface.Bus(
+        channel=config["can_interface"],
+        bustype="vector",
+        bitrate=config["can_baud_rate"]
     )
-    assert msg.data[0] == WHEEL_SPEED_FL_RAW_50KMH  # Named constant
+    # Attempt to read one frame — timeout if wrong baud rate
+    msg = bus.recv(timeout=2.0)
+    if msg is None:
+        raise EnvironmentError(
+            f"No CAN frames received at "
+            f"{config['can_baud_rate']} baud. "
+            f"Verify baud rate configuration for "
+            f"{config['rack_id']}."
+        )
+    bus.shutdown()
 ```
 
 ---
 
-## 7. Common Failures
+## Scenario 3 — SUT State Verification (K3)
 
-| Failure | Consequence | Prevention |
-|---------|------------|-----------|
-| Static analysis only on production code | TAF accumulates defects undetected | Apply same tools to testware as product code |
-| No pipeline enforcement | Violations committed under time pressure | Pipeline blocks on critical violations |
-| All violations treated equally | Team ignores low-severity noise | Classify severity — only critical blocks |
-| No baseline for legacy code | All 500 existing violations block pipeline on day 1 | Create baseline file for existing code |
-| Complexity ignored | TAF functions become untestable and defect-prone | Set complexity threshold — refactor above limit |
-| Security check skipped | Hardcoded credentials in test config | `bandit` in pipeline catches this class |
+### Situation
 
----
+Monday morning ABS regression runs at 07:00.
+Results show 8 failures all in fault injection tests:
+```
+test_abs_fault_injection_wheel_speed_fl   FAIL
+test_abs_fault_injection_wheel_speed_fr   FAIL
+test_abs_fault_injection_brake_pressure   FAIL
+...
+```
 
-## 8. Architect Insights
+Failure message for each:
+```
+AssertionError: Expected DTC 0xC0051 not present.
+Active DTCs found: [0xC0051, 0xC0052, 0xC0053, 0xC0071]
+```
 
-> ⭐ **Static analysis on testware is not optional
-> for a professional TAF.** It is the baseline
-> quality gate for test code. A team that applies
-> static analysis to production code but not to
-> testware is applying inconsistent quality standards
-> to the very tool that measures product quality.
+Investigation reveals Friday's regression run
+ended abruptly at 23:55 due to a pipeline timeout.
+The fault injection tests had run — but the teardown
+fixture that clears DTCs never executed.
 
-> **The unused variable finding is worth the entire
-> static analysis investment on its own.**
-> One unused variable in an assertion means one
-> test that has never verified anything — ever.
-> In a 400-test suite running for 18 months, that
-> is 18 months of false confidence.
+The Monday suite found pre-existing DTCs at startup
+and the fault injection tests could not distinguish
+newly injected from pre-existing faults.
 
-> **Complexity thresholds prevent technical debt
-> accumulation.** A TAF function with complexity
-> 20 cannot be unit tested comprehensively.
-> It cannot be maintained without introducing
-> new defects. The threshold enforces architectural
-> cleanliness before the damage is permanent.
+### Question
 
-> **For automotive pipelines:**
-> Static analysis of testware belongs in the same
-> pipeline stage as static analysis of production
-> code — the build stage. Both run on every commit.
-> Both must pass before any deployment occurs.
+Define the SUT state verification that would have
+detected and resolved this before the Monday suite
+began executing test cases.
 
----
+### Answer
 
-## 9. Reflection Questions
+> ⭐ SUT state verification at suite start must
+> include a DTC check and clear — before any
+> test case executes.
+```python
+@pytest.fixture(scope="session", autouse=True)
+def verify_and_reset_sut_state(uds_client, config):
+    """
+    Session-scoped fixture — runs once before all tests.
+    Verifies ECU is in clean initial state.
+    If DTCs present from previous run: logs and clears them.
+    If ECU in wrong session: resets to default.
+    Aborts suite if state cannot be established.
+    """
+    # Check for pre-existing DTCs
+    dtc_response = uds_client.read_dtc_information(
+        sub_function=0x02,
+        status_mask=0x08
+    )
 
-1. Your team's TAF has been in production for
-   two years with no static analysis. You run
-   flake8 for the first time and find 847 violations.
-   Describe your strategy for introducing static
-   analysis enforcement without blocking the
-   pipeline for two weeks while all violations
-   are fixed.
+    if dtc_response.dtc_list:
+        # Log pre-existing DTCs — not a failure, but must be cleared
+        print(
+            f"⚠️  Pre-existing DTCs detected before suite start: "
+            f"{[hex(d) for d in dtc_response.dtc_list]}. "
+            f"Clearing before suite execution."
+        )
+        uds_client.clear_diagnostic_information(group=0xFFFFFF)
 
-2. A pylint run on your ABS TAF reports 12 instances
-   of W0612 (unused variable). You investigate and
-   find that in 4 of the 12 cases, the variable
-   was supposed to be used in an assertion that was
-   never written. What is the impact on your test
-   results, and how do you prioritise fixing these
-   versus the other 8 style violations?
+        # Verify clear succeeded
+        verify = uds_client.read_dtc_information(
+            sub_function=0x02, status_mask=0x08
+        )
+        if verify.dtc_list:
+            raise EnvironmentError(
+                "DTCs could not be cleared before suite start. "
+                "Abort — fault injection tests will be invalid."
+            )
 
-3. Your TAF has a function `validate_ecu_response`
-   with cyclomatic complexity 18. A code review
-   shows it handles 6 different UDS service types
-   with nested conditionals. Static analysis flags
-   it as critical. How do you refactor it to reduce
-   complexity while preserving its functionality?
+    # Verify default session
+    session = uds_client.diagnostic_session_control(0x01)
+    if not session.positive:
+        raise EnvironmentError(
+            "ECU did not enter default session at suite start."
+        )
 
-4. A new TAE argues that static analysis slows
-   down the pipeline unnecessarily — "we can just
-   do code reviews instead." Compare the effectiveness
-   of static analysis versus code review for
-   detecting the unused variable pattern in a
-   400-line test file, and justify your conclusion.
+    print("✅ SUT initial state verified — no active DTCs.")
+    yield
+```
 
-5. Your pipeline runs flake8 on the TAF and passes.
-   It does not run bandit. A security audit of
-   the CI server discovers that test configuration
-   files contain ECU diagnostic credentials in
-   plaintext. Which static analysis tool would
-   have caught this, and what is the correct
-   fix for credential management in testware?
-
----
-
-## 10. Practical Takeaways
-
-| # | Action | Where |
-|---|--------|-------|
-| 1 | Run `flake8 framework-prototype/` on your current code and categorise findings by severity | `framework-prototype/` |
-| 2 | Add `static_analysis` job to your pipeline that blocks on critical violations | `chapter-05-cicd-deployment/pipeline_examples/` |
-| 3 | Run `radon cc framework-prototype/ -s` and refactor any function with complexity grade C or worse | `framework-prototype/core/` |
+> This fixture detects the Monday scenario at 07:00:02
+> rather than at 07:45 after 8 test failures.
+> It logs the pre-existing DTCs as evidence,
+> clears them, and proceeds — without blocking
+> the suite unnecessarily.
 
 ---
 
-*Next: Chapter 7 Scenarios — then Chapter 8 — Continuous Improvement*
+## Scenario 4 — Dependency Version Conflict (K3)
+
+### Situation
+
+Your ABS TAF runs correctly on developer laptops
+and on the local HIL rack. When deployed to the
+CI server, tests fail immediately:
+```
+ImportError: cannot import name 'CanSignalMonitor'
+from 'can_tools' (version 2.1.0)
+```
+
+Investigation reveals:
+- Developer laptops: `can_tools==3.0.0`
+- CI server: `can_tools==2.1.0`
+- `requirements.txt` in the repo: no version pinned
+  (`can_tools` with no version specifier)
+
+### Question A
+
+Which environment verification method would have
+detected this before the first test ran?
+
+### Answer A
+
+> ⭐ Dependency version verification — checking
+> installed versions against a pinned requirements
+> file before suite execution.
+
+**Fix — pin all versions in requirements.txt:**
+```
+# requirements.txt — all versions pinned
+can_tools==3.0.0
+pytest==7.4.0
+pyyaml==6.0.1
+python-can==4.2.0
+influxdb-client==1.36.1
+```
+
+**Verification in smoke test:**
+```python
+def verify_dependency_versions(requirements_path: str) -> None:
+    """Fail fast if any dependency version mismatches."""
+    import pkg_resources
+    with open(requirements_path) as f:
+        reqs = [
+            line.strip() for line in f
+            if line.strip() and not line.startswith("#")
+        ]
+    for req in reqs:
+        try:
+            pkg_resources.require(req)
+        except pkg_resources.VersionConflict as e:
+            raise EnvironmentError(
+                f"Dependency version conflict: {e}\n"
+                f"Run: pip install -r {requirements_path}"
+            )
+```
+
+### Question B
+
+Why is an unpinned `requirements.txt` an
+environment configuration management failure
+as well as an environment verification failure?
+
+### Answer B
+
+> Unpinned requirements violate the configuration
+> management principle that testware must be
+> reproducible across environments and time.
+>
+> `can_tools` without a version pin means:
+> - Different versions install on different machines
+> - `pip install` six months from now installs a
+>   different version than today
+> - Test results cannot be reproduced because
+>   the tool version that produced them is unknown
+>
+> This is a configuration management failure
+> (Chapter 5.1.2) that also requires environment
+> verification (Chapter 7.1.1) to detect.
+> Both are needed — config management prevents
+> the problem, verification detects it when
+> it occurs anyway.
+
+---
+
+## Quick Reference — Smoke Test Coverage
+
+| Check | Detects | Timing |
+|-------|---------|--------|
+| Config key validation | Missing or renamed config keys | Pre-suite |
+| Dependency version check | Wrong library versions | Pre-suite |
+| CAN interface available | Interface missing or wrong driver | Pre-suite |
+| ECU reachable | Network or power issue | Pre-suite |
+| Firmware version correct | Wrong firmware deployed | Pre-suite |
+| Active DTC check and clear | State contamination from previous run | Pre-suite |
+| ARXML version match | Stale ARXML file | Pre-suite |
+
+---
+
+*Next: Scenarios 7.1.2 — Verifying Correct Behavior*
