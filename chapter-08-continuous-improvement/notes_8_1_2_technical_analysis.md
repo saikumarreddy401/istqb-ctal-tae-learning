@@ -1,6 +1,6 @@
-# Sub-Chapter 8.1.3 — Restructuring Testware
+# Sub-Chapter 8.1.2 — Technical Analysis of the TAF
 
-> **Syllabus Reference:** TAE-8.1.3
+> **Syllabus Reference:** TAE-8.1.2
 > **Cognitive Level:** K4 — Analyze
 > **Chapter:** 8 — Continuous Improvement of Test Automation
 > **Status:** ✅ Complete
@@ -9,466 +9,444 @@
 
 ## 1. Concept Explanation
 
-### What Restructuring Means
+### What Technical Analysis Means
 
-Restructuring is the deliberate reorganisation of
-testware — its code, folder structure, naming
-conventions, and architectural layers — to improve
-maintainability, reduce duplication, and restore
-alignment with the current product and TAF architecture.
+Technical analysis is the systematic examination
+of the TAF's internal health — its code quality,
+architecture, dependency structure, and runtime
+behaviour — to identify where improvement effort
+will have the highest impact.
 
-> ⭐ **Restructuring is not rewriting.**
-> Rewriting discards working testware and rebuilds
-> from scratch — high risk, high cost.
-> Restructuring improves existing testware
-> incrementally — preserving test coverage while
-> reducing technical debt.
->
-> The external behaviour of the test suite
-> does not change after restructuring.
-> The internal quality does.
+> ⭐ **Technical analysis answers: "Where is the
+> TAF accumulating risk?"**
+> Not where it is failing today, but where it
+> will fail tomorrow if nothing changes.
+> This is the distinction between reactive
+> maintenance and proactive improvement.
 
-### When Restructuring Is Needed
+### Why Technical Analysis Is K4
 
-| Signal | Meaning |
-|--------|---------|
-| Requirement change requires updating 20+ test files | Duplication — restructure to single update point |
-| New TAE cannot understand test logic without the author | Cohesion failure — restructure for clarity |
-| Test suite execution time grows without new tests | Structural inefficiency — restructure setup/teardown |
-| Pass rate unstable without product changes | Shared state — restructure fixtures |
-| Adding new test cases takes disproportionate effort | Wrong abstraction level — restructure layers |
+K4 requires evaluation and recommendation —
+not just identification. The exam will present
+a TAF health scenario and ask you to:
+- Evaluate which findings are most critical
+- Recommend a prioritised improvement plan
+- Justify your recommendations with evidence
 
 ---
 
-## 2. Restructuring Techniques
+## 2. Technical Debt in Test Automation
 
-### Technique 1 — Extract Business Logic to Dedicated Layer
+> ⭐ **Technical debt** is the accumulated cost
+> of shortcuts, deferred refactoring, and
+> architectural compromises in the TAF codebase.
+> Like financial debt, it accrues interest —
+> every new feature added to a high-debt TAF
+> costs more than it would in a clean TAF.
 
-The most architecturally impactful restructuring.
-Moves product-specific knowledge out of test scripts
-and into the business logic layer where it belongs.
+### Sources of Technical Debt in TAF
+
+| Source | Example | Accumulated Cost |
+|--------|---------|-----------------|
+| Hardcoded values | Expected values not from ARXML | Every signal definition change requires manual test update |
+| Duplicated test logic | 40 near-identical tests | 40 places to update per requirement change |
+| No abstraction layers | Test scripts call CAN bus directly | CAN library change breaks all test scripts |
+| Magic numbers | `assert response.data[3] == 127` | Meaning lost — unmaintainable |
+| Missing fixtures | Manual setup code in every test | Setup defects propagate everywhere |
+| No version control discipline | Untagged test releases | Cannot reproduce past results |
+
+### Measuring Technical Debt
 ```python
-# BEFORE — business logic embedded in test script
-def test_abs_activation_before():
+def analyse_taf_technical_debt(src_directory: str) -> dict:
     """
-    Product knowledge (speed threshold, pressure threshold,
-    signal names, expected flag value) all in test script.
-    If ABS activation logic changes — this test changes.
-    If CAN signal name changes — this test changes.
-    If threshold changes — this test changes.
-    Three reasons to change one test.
+    Analyse TAF codebase for technical debt indicators.
+    Returns metrics per file for prioritisation.
     """
-    # Set up conditions
-    can_bus.send_signal("VehicleSpeed", 80.0 / 0.01)  # raw value
-    can_bus.send_signal("BrakePressure", 150 / 0.1)    # raw value
-    time.sleep(0.2)
+    import ast
+    import os
+    from pathlib import Path
 
-    # Read result
-    raw_flag = can_bus.read_signal("ABSActivationFlag_0x1A4_B0")
-    assert raw_flag == 1
+    debt_report = {}
 
-# AFTER — business logic in dedicated layer
-# business_logic/abs_signal_flows.py
-class AbsActivationFlow:
-    """
-    Encapsulates all knowledge of ABS activation conditions.
-    Test scripts call methods — not signals directly.
-    Signal names, thresholds, raw conversions: all here.
-    """
+    for py_file in Path(src_directory).rglob("*.py"):
+        with open(py_file) as f:
+            source = f.read()
+            tree = ast.parse(source)
 
-    ABS_ACTIVATION_SPEED_THRESHOLD_KMH = 30.0
-    ABS_ACTIVATION_PRESSURE_THRESHOLD_BAR = 120.0
-
-    def __init__(self, can_monitor, simulator):
-        self._can = can_monitor
-        self._sim = simulator
-
-    def create_abs_activation_conditions(
-        self, speed_kmh: float = 80.0,
-        pressure_bar: float = 150.0
-    ) -> None:
-        """Set up conditions that should trigger ABS."""
-        self._sim.set_vehicle_speed(speed_kmh)
-        self._sim.apply_brake(pressure_bar)
-
-    def wait_for_abs_activation(
-        self, timeout_seconds: float = 2.0
-    ) -> bool:
-        """Wait for ABS to activate. Returns True if activated."""
-        return self._can.wait_for_signal(
-            "ABSActivationFlag", expected_value=1,
-            timeout_seconds=timeout_seconds
+        # Count magic numbers (numeric literals not in assignments)
+        magic_numbers = sum(
+            1 for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, (int, float))
+            and node.value not in (0, 1, -1, True, False)
         )
 
-    def assert_abs_activated(self) -> None:
-        """Assert ABS is currently active."""
-        flag = self._can.read_signal("ABSActivationFlag")
-        assert flag == 1, (
-            f"ABS not activated. ABSActivationFlag={flag}. "
-            f"Verify speed > {self.ABS_ACTIVATION_SPEED_THRESHOLD_KMH} "
-            f"km/h and brake pressure > "
-            f"{self.ABS_ACTIVATION_PRESSURE_THRESHOLD_BAR} bar."
-        )
-
-# test_scripts/test_abs_activation.py — AFTER restructuring
-def test_abs_activation(abs_flow: AbsActivationFlow):
-    """
-    Verify ABS activates under standard braking conditions.
-    All product knowledge in AbsActivationFlow — not here.
-    If signal names change: update AbsActivationFlow only.
-    If thresholds change: update AbsActivationFlow only.
-    This test never changes unless the test intent changes.
-    """
-    abs_flow.create_abs_activation_conditions()
-    abs_flow.wait_for_abs_activation()
-    abs_flow.assert_abs_activated()
-```
-
-> ⭐ After restructuring, the test script is
-> three lines. The business logic is in one place.
-> A signal name change requires one update —
-> not 40 test file updates.
-
-### Technique 2 — Consolidate Fixtures
-
-Replace duplicated setup code scattered across
-test files with shared fixtures in `conftest.py`.
-```python
-# BEFORE — setup duplicated in every test file
-# test_abs_wheel_speed.py
-def test_wheel_speed_fl():
-    client = UdsClient(ip="192.168.100.10", port=13400)
-    client.connect()
-    client.clear_dtcs()
-    client.set_session(0x01)
-    # ... test logic
-    client.disconnect()
-
-# test_abs_fault_injection.py
-def test_fault_injection():
-    client = UdsClient(ip="192.168.100.10", port=13400)
-    client.connect()
-    client.clear_dtcs()
-    client.set_session(0x01)
-    # ... test logic
-    client.disconnect()
-
-# AFTER — single fixture in conftest.py
-# conftest.py
-@pytest.fixture(scope="session")
-def uds_client(config):
-    """
-    Session-scoped UDS client.
-    Created once — shared across all tests.
-    Handles connect, initial state, and disconnect.
-    """
-    client = UdsClient(
-        ip=config["ecu_ip"],
-        port=config["uds_port"]
-    )
-    client.connect()
-    client.clear_diagnostic_information(group=0xFFFFFF)
-    client.diagnostic_session_control(0x01)
-    yield client
-    client.disconnect()
-
-@pytest.fixture(autouse=True)
-def reset_ecu_per_test(uds_client):
-    """Function-scoped reset — runs before each test."""
-    uds_client.clear_diagnostic_information(group=0xFFFFFF)
-    uds_client.diagnostic_session_control(0x01)
-    yield
-    uds_client.clear_diagnostic_information(group=0xFFFFFF)
-```
-
-> Fixture consolidation has three benefits:
-> 1. Setup defect fixed in one place — not 40
-> 2. Session-scoped client reduces connect/disconnect overhead
-> 3. autouse reset ensures test atomicity without test modification
-
-### Technique 3 — Replace Magic Numbers with Named Constants
-```python
-# BEFORE — magic numbers everywhere
-def test_wheel_speed_scaling():
-    assert monitor.raw_to_physical("WheelSpeedFL", 5000) == 50.0
-    assert monitor.raw_to_physical("WheelSpeedFL", 8000) == 80.0
-    assert 0 <= raw_value <= 25000
-
-# AFTER — named constants from specification
-# constants/abs_signal_constants.py
-class WheelSpeedSignal:
-    """
-    Constants derived from ARXML specification.
-    Update here when specification changes —
-    all tests using these constants update automatically.
-    """
-    SCALING_FACTOR_KMH_PER_BIT = 0.01
-    RAW_MIN = 0
-    RAW_MAX = 25000
-    PHYSICAL_MIN_KMH = 0.0
-    PHYSICAL_MAX_KMH = 250.0
-
-    @classmethod
-    def physical_to_raw(cls, physical_kmh: float) -> int:
-        """Convert physical km/h to raw CAN value."""
-        return int(physical_kmh / cls.SCALING_FACTOR_KMH_PER_BIT)
-
-# test using constants
-from constants.abs_signal_constants import WheelSpeedSignal
-
-def test_wheel_speed_scaling():
-    raw_50kmh = WheelSpeedSignal.physical_to_raw(50.0)
-    raw_80kmh = WheelSpeedSignal.physical_to_raw(80.0)
-
-    assert monitor.raw_to_physical("WheelSpeedFL", raw_50kmh) == \
-        pytest.approx(50.0, abs=0.01)
-    assert monitor.raw_to_physical("WheelSpeedFL", raw_80kmh) == \
-        pytest.approx(80.0, abs=0.01)
-    assert WheelSpeedSignal.RAW_MIN <= raw_value \
-        <= WheelSpeedSignal.RAW_MAX
-```
-
-### Technique 4 — Reorganise Folder Structure
-
-A testware folder structure that does not reflect
-the current product and TAF architecture becomes
-a navigation and maintenance burden.
-```
-# BEFORE — flat, unorganised structure
-tests/
-├── test_abs.py              ← 800 lines, all ABS tests
-├── test_esp.py              ← 600 lines, all ESP tests
-├── helper.py                ← Unclear purpose
-├── utils.py                 ← Unclear purpose
-└── conftest.py
-
-# AFTER — mirrors TAF layer structure
-tests/
-├── conftest.py              ← Session + function fixtures
-├── abs/
-│   ├── conftest.py          ← ABS-specific fixtures
-│   ├── test_wheel_speed.py  ← One behavior per file
-│   ├── test_abs_activation.py
-│   ├── test_fault_injection.py
-│   └── test_calibration_variants.py
-├── esp/
-│   ├── conftest.py
-│   ├── test_yaw_rate.py
-│   └── test_stability_control.py
-└── shared/
-    ├── test_uds_session.py
-    └── test_can_signal_baseline.py
-```
-
-> ⭐ Folder structure is architecture made visible.
-> A TAE who cannot find the test for a specific
-> requirement within 30 seconds is working in
-> a structure that needs restructuring.
-
-### Technique 5 — Introduce Data-Driven Tests for Variants
-
-Replace explicit test functions per calibration
-variant with DDT from CSV.
-```python
-# BEFORE — one test function per variant (not scalable)
-def test_abs_calibration_variant_a():
-    assert abs_flow.get_activation_threshold() == 118.5
-
-def test_abs_calibration_variant_b():
-    assert abs_flow.get_activation_threshold() == 121.0
-
-def test_abs_calibration_variant_c():
-    assert abs_flow.get_activation_threshold() == 115.0
-# Adding variant D requires new test function
-
-# AFTER — DDT from CSV
-# data/abs_calibration_variants.csv
-# variant_id, activation_threshold_bar, market
-# A, 118.5, EU
-# B, 121.0, US
-# C, 115.0, JP
-
-import csv
-import pytest
-
-def load_calibration_variants(csv_path: str) -> list:
-    """Load calibration variants from CSV for parametrize."""
-    with open(csv_path) as f:
-        reader = csv.DictReader(f)
-        return [
-            pytest.param(
-                row["variant_id"],
-                float(row["activation_threshold_bar"]),
-                id=f"variant_{row['variant_id']}"
+        # Count hardcoded strings that look like paths or IPs
+        hardcoded_strings = sum(
+            1 for node in ast.walk(tree)
+            if isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and (
+                node.value.startswith("192.168") or
+                node.value.startswith("C:\\") or
+                node.value.endswith(".arxml") or
+                node.value.endswith(".csv")
             )
-            for row in reader
-        ]
+        )
 
-@pytest.mark.parametrize(
-    "variant_id, expected_threshold",
-    load_calibration_variants("data/abs_calibration_variants.csv")
-)
-def test_abs_calibration_variant(
-    variant_id: str, expected_threshold: float
-):
-    """
-    Verify ABS activation threshold per calibration variant.
-    Adding variant D: add one row to CSV — no code change.
-    """
-    abs_flow.load_calibration_variant(variant_id)
-    actual = abs_flow.get_activation_threshold()
-    assert actual == pytest.approx(expected_threshold, abs=0.1), (
-        f"Variant {variant_id}: threshold={actual}, "
-        f"expected={expected_threshold} bar."
-    )
+        # Count TODO/FIXME comments
+        todo_count = source.upper().count("TODO") + \
+                     source.upper().count("FIXME")
+
+        debt_report[str(py_file)] = {
+            "magic_numbers": magic_numbers,
+            "hardcoded_strings": hardcoded_strings,
+            "todo_fixme_count": todo_count
+        }
+
+    return debt_report
 ```
 
 ---
 
-## 3. Restructuring Without Breaking Coverage
+## 3. Dependency Analysis
 
-> ⭐ **The cardinal rule of restructuring:**
-> Pass rate must not decrease during or after
-> restructuring. If tests break during restructuring,
-> the restructuring introduced a defect.
+### Why Dependencies Are a Health Risk
 
-**Safe restructuring workflow:**
+Every external dependency the TAF relies on
+is a potential breaking change. When a dependency
+updates its API, the TAF breaks.
 
-| Step | Action | Verification |
-|------|--------|-------------|
-| 1 | Run suite — record baseline pass rate | Baseline: 96.2% |
-| 2 | Restructure one component at a time | Never restructure entire suite at once |
-| 3 | Run suite after each component | Pass rate must match or exceed baseline |
-| 4 | Commit each component separately | Enables rollback to last good state |
-| 5 | Update documentation after each commit | Structure reflects new organisation |
-```yaml
-# Pipeline protection during restructuring
-jobs:
-  restructuring_validation:
-    steps:
-      - name: Run full suite after restructuring
-        run: pytest tests/ --junit-xml=results/post_restructure.xml
+> ⭐ Dependency analysis identifies:
+> - Outdated packages with known vulnerabilities
+> - Unused dependencies adding attack surface
+> - Tightly coupled components that cannot
+>   be updated independently
+```python
+def analyse_import_dependencies(src_directory: str) -> dict:
+    """
+    Map which TAF modules depend on which external packages.
+    Identifies coupling and unused imports.
+    """
+    import ast
+    from pathlib import Path
+    from collections import defaultdict
 
-      - name: Validate pass rate not decreased
-        run: python scripts/compare_pass_rates.py
-          --baseline results/pre_restructure_baseline.xml
-          --current results/post_restructure.xml
-          --tolerance 0.5  # Allow 0.5% variance
+    dependency_map = defaultdict(set)
+
+    for py_file in Path(src_directory).rglob("*.py"):
+        module_name = py_file.stem
+        with open(py_file) as f:
+            tree = ast.parse(f.read())
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    dependency_map[module_name].add(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module:
+                    dependency_map[module_name].add(node.module)
+
+    return dict(dependency_map)
+```
+
+**Automotive example — dependency coupling risk:**
+
+| Module | Depends On | Risk |
+|--------|-----------|------|
+| `test_abs_wheel_speed.py` | `ecutest_api` directly | ECUTest version change breaks test scripts |
+| `test_abs_wheel_speed.py` | `core.can_signal_monitor` | Correct — abstracted via TAF layer |
+| `abs_signal_flows.py` | `can` (python-can) directly | Library change breaks business logic |
+| `abs_signal_flows.py` | `core.can_signal_monitor` | Correct — single abstraction point |
+
+> ⭐ Test scripts must depend on TAF abstraction
+> layers — never on external libraries directly.
+> This is the architectural principle from Chapter 3
+> (TAF layers) applied to dependency health analysis.
+
+---
+
+## 4. Code Coverage of the TAF Itself
+
+> ⭐ Coverage of the TAF means: what percentage
+> of the TAF's own code is executed by TAF
+> unit tests — not by product tests.
+```bash
+# Measure TAF unit test coverage
+pytest tests/taf_unit_tests/ \
+  --cov=framework-prototype \
+  --cov-report=html:coverage_report \
+  --cov-report=term-missing
+```
+
+**Coverage targets for TAF components:**
+
+| TAF Component | Minimum Coverage | Reason |
+|--------------|-----------------|--------|
+| Core libraries (signal monitor, UDS handler) | 90% | High-impact, failure causes false negatives |
+| Business logic (ABS flows, fault injection) | 85% | Safety-critical logic |
+| Test scripts | Not measured by unit coverage | Verified by product tests |
+| Report generator | 90% | Incorrect counts affect release decisions |
+| Configuration loader | 95% | Failure aborts entire suite |
+
+---
+
+## 5. Architecture Health Analysis
+
+### Coupling and Cohesion Assessment
+
+> ⭐ **Low coupling + high cohesion = healthy TAF.**
+> High coupling = changes propagate unexpectedly.
+> Low cohesion = modules do too many things.
+
+**Coupling analysis — count inter-module dependencies:**
+
+| Finding | Healthy | Unhealthy |
+|---------|---------|----------|
+| Test scripts → core libraries | 0 direct imports | Any direct import |
+| Business logic → test scripts | 0 (one-way dependency) | Any reverse dependency |
+| Core libraries → business logic | 0 (no upward dependency) | Any upward dependency |
+| Configuration → any module | 0 (loaded by runner) | Hardcoded in modules |
+
+**Cohesion analysis — does each module do one thing?**
+```python
+# LOW COHESION — one module does too many things
+class AbsTestHelper:
+    def read_wheel_speed(self): ...      # Signal reading
+    def inject_fault(self): ...          # Fault injection
+    def generate_report(self): ...       # Reporting
+    def load_config(self): ...           # Configuration
+    def connect_to_ecu(self): ...        # Connection management
+
+# HIGH COHESION — each class does one thing
+class CanSignalMonitor:
+    def read_signal(self): ...
+    def wait_for_signal(self): ...
+    def assert_signal_value(self): ...
+
+class FaultInjector:
+    def inject_sensor_fault(self): ...
+    def inject_network_fault(self): ...
+    def clear_all_faults(self): ...
+```
+
+### Layer Violation Detection
+```python
+def detect_layer_violations(test_dir: str, core_dir: str) -> list:
+    """
+    Detect test scripts importing directly from
+    external libraries — bypassing TAF core layer.
+    These are architectural violations.
+    """
+    import ast
+    from pathlib import Path
+
+    # External libraries that should only be used in core
+    protected_imports = {"can", "ecutest_api", "xcp", "udsoncan"}
+    violations = []
+
+    for test_file in Path(test_dir).rglob("test_*.py"):
+        with open(test_file) as f:
+            tree = ast.parse(f.read())
+
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                module = (
+                    node.names[0].name if isinstance(node, ast.Import)
+                    else node.module or ""
+                )
+                if module.split(".")[0] in protected_imports:
+                    violations.append({
+                        "file": str(test_file),
+                        "import": module,
+                        "violation": (
+                            f"Test script imports {module} directly. "
+                            f"Use core abstraction layer instead."
+                        )
+                    })
+
+    return violations
 ```
 
 ---
 
-## 4. Automotive Domain — ABS Testware Restructuring Plan
+## 6. Runtime Health Metrics
 
-### Restructuring Priority Matrix
+Beyond static analysis, runtime behaviour
+reveals health problems that code inspection
+cannot find.
 
-| Component | Current State | Target State | Effort | Risk |
-|-----------|--------------|-------------|--------|------|
-| Signal names in test scripts | 40 scripts with raw signal names | All signal names in `AbsSignalFlows` | High | High — touch many files |
-| Fixture duplication | Setup code in 40 test files | `conftest.py` session fixture | Medium | Medium |
-| Magic threshold values | 134 occurrences | `WheelSpeedSignal` constants class | Medium | Low |
-| Calibration variant tests | 12 explicit functions | DDT from calibration CSV | Low | Low |
-| Flat test folder | 3 large test files | Component-based folder structure | Low | Low |
+| Runtime Metric | Healthy Value | Warning | Action Threshold |
+|---------------|--------------|---------|-----------------|
+| Average test setup time | < 2 seconds | 2–5 seconds | > 5 seconds |
+| Average test teardown time | < 1 second | 1–3 seconds | > 3 seconds |
+| CAN bus timeout rate | < 1% | 1–3% | > 3% |
+| UDS connection retry rate | < 1% | 1–5% | > 5% |
+| Memory usage growth per test | 0 MB | < 1 MB | > 1 MB (memory leak) |
+| Flaky test rate | < 2% | 2–5% | > 5% |
+```python
+def collect_runtime_metrics(junit_xml_path: str) -> dict:
+    """
+    Extract runtime health metrics from JUnit XML.
+    Returns summary statistics for dashboard.
+    """
+    import xml.etree.ElementTree as ET
+    import statistics
 
-**Recommended restructuring sequence:**
+    tree = ET.parse(junit_xml_path)
+    durations = []
+    setup_times = []
 
-> 1. Folder structure first — lowest risk, enables parallel work
-> 2. Constants extraction — safe, mechanical, low coupling
-> 3. Fixture consolidation — medium risk, high maintenance benefit
-> 4. Business logic extraction — highest effort, highest long-term benefit
-> 5. DDT introduction — last, after structure is stable
+    for testcase in tree.iter("testcase"):
+        duration = float(testcase.get("time", 0))
+        durations.append(duration)
+
+    if not durations:
+        return {}
+
+    return {
+        "total_tests": len(durations),
+        "mean_duration_seconds": statistics.mean(durations),
+        "median_duration_seconds": statistics.median(durations),
+        "p95_duration_seconds": sorted(durations)[
+            int(len(durations) * 0.95)
+        ],
+        "max_duration_seconds": max(durations),
+        "tests_over_30s": sum(1 for d in durations if d > 30),
+        "total_execution_seconds": sum(durations)
+    }
+```
 
 ---
 
-## 5. Common Failures
+## 7. Technical Analysis Report
+
+> ⭐ Technical analysis produces a structured
+> findings report — not just a list of problems.
+> Each finding has: severity, evidence, impact,
+> and recommended action.
+
+**Technical analysis report template:**
+
+| Finding | Severity | Evidence | Impact | Recommendation |
+|---------|----------|---------|--------|---------------|
+| 23 test scripts import `can` directly | High | Layer violation scan | ECU library change breaks 23 tests | Refactor to use `core.can_signal_monitor` |
+| 6 functions with complexity > 15 | High | radon output | Unmaintainable, high defect risk | Refactor before next release |
+| 47 duplicate test functions (speed variants) | Medium | Code duplication scan | Requirement change requires 47 updates | Parameterise into DDT suite |
+| `python-can` dependency unpinned | High | requirements.txt review | Silent version upgrades may break CAN layer | Pin to `python-can==4.2.0` |
+| TAF unit test coverage at 61% | Medium | pytest-cov report | 39% of TAF untested — false negative risk | Target 85% this quarter |
+| 134 magic numbers in test assertions | Medium | AST analysis | Values meaningless, break on spec change | Replace with named constants from ARXML |
+
+---
+
+## 8. Automotive Domain — TAF Health Dashboard
+
+### Monthly Technical Analysis Metrics — ABS TAF
+
+| Metric | Target | Current | Trend | Action |
+|--------|--------|---------|-------|--------|
+| Layer violations | 0 | 3 | ↑ New | Assign to sprint |
+| Functions complexity > 10 | 0 | 6 | → Stable | Schedule refactor |
+| TAF unit test coverage | 85% | 71% | ↑ Improving | Continue |
+| Unpinned dependencies | 0 | 2 | → Stable | Pin this sprint |
+| Magic numbers in assertions | 0 | 134 | ↓ Reducing | Continue |
+| TODO/FIXME comments | < 10 | 28 | → Stable | Schedule cleanup |
+| Flaky test rate | < 2% | 3.1% | ↓ Improving | 3 remaining to fix |
+| Mean test duration | < 15s | 18.4s | ↑ Growing | Profile top 10 slow |
+
+---
+
+## 9. Common Failures
 
 | Failure | Consequence | Prevention |
 |---------|------------|-----------|
-| Restructure entire suite at once | Coverage drops, root cause hard to find | One component at a time |
-| No baseline before restructuring | Cannot verify restructuring preserved coverage | Always record baseline pass rate first |
-| Restructure without pipeline | Breakage discovered days later | Pipeline validates after every component |
-| Rename signals without updating all references | Runtime errors on signal name | Search entire codebase before renaming |
-| Extract business logic but leave old code | Duplication grows | Delete old code after extraction verified |
+| Technical analysis done once at project start | Debt accumulates undetected | Monthly analysis cycle |
+| Findings documented but not actioned | Report exists, quality degrades | Findings go to sprint backlog with owner |
+| Coverage measured for product — not TAF | TAF defects undetected | Separate coverage target for TAF unit tests |
+| Layer violations accepted over time | Architecture degrades — high coupling | Zero tolerance for new layer violations |
+| Runtime metrics not collected | Memory leaks and slowdowns invisible | Collect and trend runtime metrics per release |
 
 ---
 
-## 6. Architect Insights
+## 10. Architect Insights
 
-> ⭐ **Restructuring is an investment in future
-> delivery speed.** A team that spends 20% of
-> a sprint restructuring will deliver the
-> remaining 80% faster — because the next
-> requirement change touches one file instead
-> of forty.
+> ⭐ **Technical debt in a TAF is compounding.**
+> A TAF with 134 hardcoded magic numbers today
+> will have 200 next year if nothing changes.
+> Each new test written by someone who sees
+> existing hardcoded values will follow the
+> same pattern. Debt sets the standard for
+> future contributions.
 
-> **The business logic layer is the most valuable
-> restructuring target in automotive TAF.**
-> Every signal name, every threshold, every
-> calibration value that lives in a test script
-> is a maintenance debt that compounds with
-> every SW release. Extract it once — maintain
-> it in one place forever.
+> **Coverage of the TAF is not vanity.**
+> 61% TAF coverage means 39% of the TAF's logic
+> has never been verified to be correct.
+> In a 400-test suite, 39% × 400 = 156 tests
+> whose underlying logic has not been unit tested.
+> The false negative risk from those 156 tests
+> is unknown.
 
-> **Never restructure under time pressure.**
-> Restructuring requires careful, verified,
-> incremental steps. Rushed restructuring
-> breaks coverage and creates new debt faster
-> than it removes old debt. Schedule it as a
-> dedicated sprint activity — not as something
-> done between feature work.
-
----
-
-## 7. Reflection Questions
-
-1. Your ABS test suite has 40 test files where
-   each file directly references CAN signal names
-   as strings. The signal naming convention is
-   changing in the next SW release. Without
-   restructuring, how many files require updates,
-   and what restructuring technique reduces this
-   to one update point?
-
-2. You are asked to restructure the ABS test
-   suite over two sprints. Sprint 1 must be
-   zero-risk. Sprint 2 may carry medium risk.
-   Using the restructuring priority matrix,
-   assign techniques to each sprint and justify
-   the sequence.
-
-3. After extracting business logic to a dedicated
-   `AbsSignalFlows` class, the suite pass rate
-   drops from 96.2% to 91.4%. The restructuring
-   introduced defects. Describe your recovery
-   process: what you check first, how you isolate
-   the regression, and how you prevent this in
-   future restructuring efforts.
-
-4. A project manager argues that restructuring
-   has no value because "the tests pass — why
-   change them?" Construct a quantified business
-   case using the maintenance cost of the current
-   40-file signal name coupling versus the
-   proposed single-update-point architecture.
-
-5. Your calibration team adds 3 new ABS variants
-   per SW release. Currently each variant requires
-   a new test function — taking 30 minutes of TAE
-   time per variant. After introducing DDT from
-   CSV, adding a variant takes 2 minutes. Calculate
-   the annual time saving for 4 releases per year
-   with 3 new variants each.
+> **For automotive:**
+> Layer violations are architecture violations.
+> A test script that imports `udsoncan` directly
+> instead of using the TAF UDS handler is an
+> architectural defect — not a style issue.
+> It must be treated as a High severity finding
+> and fixed before the next release.
 
 ---
 
-## 8. Practical Takeaways
+## 11. Reflection Questions
+
+1. Your ABS TAF technical analysis reveals:
+   TAF unit test coverage at 58%, 12 layer
+   violations, 6 high-complexity functions,
+   and 3 unpinned dependencies. Prioritise
+   these four findings and justify your order
+   using risk impact analysis.
+
+2. A layer violation scan finds that 8 test
+   scripts import `python-can` directly instead
+   of using `core.can_signal_monitor`. The
+   technical debt report rates this as High.
+   A TAE argues: "The tests work — why fix
+   something that isn't broken?" Construct
+   the counter-argument using the concept of
+   coupling and future maintenance cost.
+
+3. Runtime metrics show mean test duration has
+   grown from 12 seconds to 19 seconds over
+   six months without new tests being added.
+   List three hypotheses for root cause and
+   specify what data you would examine to
+   confirm each.
+
+4. Your TAF has 134 magic numbers in assertions.
+   A complete replacement would take two sprints.
+   Design an incremental strategy that reduces
+   risk immediately while spreading the full
+   refactoring over three months.
+
+5. The TAF technical analysis report has been
+   produced monthly for six months. Findings
+   are documented but no actions have been
+   taken because "there is always higher priority
+   work." The flaky rate is now 7%, coverage
+   is at 58%, and layer violations have grown
+   from 3 to 11. Construct the business case
+   for dedicating 20% of each sprint to TAF
+   technical debt reduction.
+
+---
+
+## 12. Practical Takeaways
 
 | # | Action | Where |
 |---|--------|-------|
-| 1 | Extract all ABS signal names from test scripts into `business_logic/abs_signal_flows.py` | `framework-prototype/business_logic/` |
-| 2 | Create `WheelSpeedSignal` constants class and replace all magic numbers in wheel speed tests | `framework-prototype/core/` |
-| 3 | Restructure flat test folder into component-based structure matching TAF layers | `framework-prototype/tests/` |
+| 1 | Run `detect_layer_violations` on your test suite and fix any direct external imports in test scripts | `framework-prototype/tests/` |
+| 2 | Run `collect_runtime_metrics` on your latest JUnit XML and identify the top 3 slowest tests | `framework-prototype/core/report_generator.py` |
+| 3 | Produce a technical analysis report for your current ABS TAF using the report template above | `chapter-08-continuous-improvement/` |
 
 ---
 
-*Next: Sub-Chapter 8.1.4 — Identifying Tool Improvement Opportunities*
+*Next: Sub-Chapter 8.1.3 — Restructuring Testware*
