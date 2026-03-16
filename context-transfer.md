@@ -1,4 +1,4 @@
-# ISTQB CTAL-TAE Learning Session — Full Knowledge Transfer v3
+# ISTQB CTAL-TAE Learning Session — Full Knowledge Transfer v4
 
 ## Session Identity
 
@@ -52,11 +52,11 @@ Get-ChildItem chapter-05-cicd-deployment -Recurse -Name
 
 ---
 
-## Complete Folder Structure
+## Complete Folder Structure — Current Status
 ```
 istqb-ctal-tae-learning/
 │
-├── context-transfer.md                         ← THIS FILE
+├── context-transfer.md                         ← THIS FILE (v4)
 ├── README.md
 ├── .gitignore
 │
@@ -110,43 +110,43 @@ istqb-ctal-tae-learning/
 │
 ├── chapter-05-cicd-deployment/
 │   ├── notes_5_1_1_pipeline_levels.md         ✅ Complete
-│   ├── scenarios_5_1_1_pipeline_levels.md     ⏳ TODO NEXT
-│   ├── notes_5_1_2_config_management.md       ⏳ TODO
-│   ├── scenarios_5_1_2_config_management.md   ⏳ TODO
-│   ├── notes_5_1_3_api_dependencies.md        ⏳ TODO
-│   ├── scenarios_5_1_3_api_dependencies.md    ⏳ TODO
+│   ├── scenarios_5_1_1_pipeline_levels.md     ✅ Complete
+│   ├── notes_5_1_2_config_management.md       ✅ Complete
+│   ├── scenarios_5_1_2_config_management.md   ✅ Complete
+│   ├── notes_5_1_3_api_dependencies.md        ✅ Complete
+│   ├── scenarios_5_1_3_api_dependencies.md    ✅ Complete
 │   └── pipeline_examples/
 │       ├── github_actions_workflow.yml         ✅ Complete
 │       └── pipeline_strategy.md               ✅ Complete
 │
 ├── chapter-06-reporting-metrics/
-│   ├── notes_6_1_1_data_collection.md         ⏳ TODO
-│   ├── notes_6_1_2_data_analysis.md           ⏳ TODO
-│   ├── notes_6_1_3_test_progress_report.md    ⏳ TODO
-│   ├── scenarios_6_1_1_data_collection.md     ⏳ TODO
-│   ├── scenarios_6_1_2_data_analysis.md       ⏳ TODO
-│   └── scenarios_6_1_3_test_progress_report.md ⏳ TODO
+│   ├── notes_6_1_1_data_collection.md         ✅ Complete
+│   ├── notes_6_1_2_data_analysis.md           ✅ Complete
+│   ├── notes_6_1_3_test_progress_report.md    ✅ Complete
+│   ├── scenarios_6_1_1_data_collection.md     ✅ Complete
+│   ├── scenarios_6_1_2_data_analysis.md       ✅ Complete
+│   └── scenarios_6_1_3_test_progress_report.md ✅ Complete
 │
 ├── chapter-07-verifying-tas/
-│   ├── notes_7_1_1_verify_environment.md      ⏳ TODO
-│   ├── notes_7_1_2_correct_behavior.md        ⏳ TODO
-│   ├── notes_7_1_3_unexpected_results.md      ⏳ TODO
-│   ├── notes_7_1_4_static_analysis.md         ⏳ TODO
-│   ├── scenarios_7_1_1_verify_environment.md  ⏳ TODO
-│   ├── scenarios_7_1_2_correct_behavior.md    ⏳ TODO
-│   ├── scenarios_7_1_3_unexpected_results.md  ⏳ TODO
-│   ├── scenarios_7_1_4_static_analysis.md     ⏳ TODO
-│   └── verification_checklist.md              ⏳ TODO
+│   ├── notes_7_1_1_verify_environment.md      ✅ Complete
+│   ├── notes_7_1_2_correct_behavior.md        ✅ Complete
+│   ├── notes_7_1_3_unexpected_results.md      ✅ Complete
+│   ├── notes_7_1_4_static_analysis.md         ✅ Complete
+│   ├── scenarios_7_1_1_verify_environment.md  ✅ Complete
+│   ├── scenarios_7_1_2_correct_behavior.md    ✅ Complete
+│   ├── scenarios_7_1_3_unexpected_results.md  ✅ Complete
+│   ├── scenarios_7_1_4_static_analysis.md     ✅ Complete
+│   └── verification_checklist.md              ✅ Complete
 │
 ├── chapter-08-continuous-improvement/
-│   ├── notes_8_1_1_improving_tests.md         ⏳ TODO
-│   ├── notes_8_1_2_technical_analysis.md      ⏳ TODO
-│   ├── notes_8_1_3_restructure_testware.md    ⏳ TODO
-│   ├── notes_8_1_4_tool_opportunities.md      ⏳ TODO
-│   ├── scenarios_8_1_1_improving_tests.md     ⏳ TODO
-│   ├── scenarios_8_1_2_technical_analysis.md  ⏳ TODO
-│   ├── scenarios_8_1_3_restructure_testware.md ⏳ TODO
-│   └── scenarios_8_1_4_tool_opportunities.md  ⏳ TODO
+│   ├── notes_8_1_1_improving_tests.md         ✅ Complete
+│   ├── notes_8_1_2_technical_analysis.md      ✅ Complete
+│   ├── notes_8_1_3_restructure_testware.md    ✅ Complete
+│   ├── notes_8_1_4_tool_opportunities.md      ✅ Complete
+│   ├── scenarios_8_1_1_improving_tests.md     ✅ Complete
+│   ├── scenarios_8_1_2_technical_analysis.md  ✅ Complete
+│   ├── scenarios_8_1_3_restructure_testware.md ✅ Complete
+│   └── scenarios_8_1_4_tool_opportunities.md  ✅ Complete
 │
 ├── automotive-domain/
 │   ├── ecu_test_concepts.md                   ⏳ TODO
@@ -157,13 +157,14 @@ istqb-ctal-tae-learning/
 │   └── test_environment_map.md                ⏳ TODO
 │
 ├── exam-prep/
-│   ├── practice_questions.md                  ⏳ TODO
+│   ├── practice_questions.md                  ⏳ TODO — FIRST PRIORITY
 │   ├── keyword_glossary.md                    ⏳ TODO
 │   ├── scenario_bank.md                       ⏳ TODO
 │   └── chapter_summary.md                     ⏳ TODO
 │
 └── framework-prototype/
     ├── README.md                               ⏳ TODO
+    ├── requirements.txt                        ⏳ TODO
     ├── core/
     │   ├── can_signal_monitor.py               ⏳ TODO
     │   ├── xcp_handler.py                      ⏳ TODO
@@ -173,11 +174,10 @@ istqb-ctal-tae-learning/
     │   ├── abs_flows.py                        ⏳ TODO
     │   ├── esp_flows.py                        ⏳ TODO
     │   └── fault_injection.py                  ⏳ TODO
-    ├── tests/
-    │   ├── test_abs_activation.py              ⏳ TODO
-    │   ├── test_esp_stability.py               ⏳ TODO
-    │   └── calibration_variants.csv            ⏳ TODO
-    └── requirements.txt                        ⏳ TODO
+    └── tests/
+        ├── test_abs_activation.py              ⏳ TODO
+        ├── test_esp_stability.py               ⏳ TODO
+        └── calibration_variants.csv            ⏳ TODO
 ```
 
 ---
@@ -255,83 +255,63 @@ istqb-ctal-tae-learning/
 | 4.1.1 | Pilot Guidelines | — | K3 | ✅ | ✅ | — |
 | 4.2.1 | Deployment Risks | — | K4 | ✅ | ✅ | — |
 | 4.3.1 | Maintainability | — | K2 | ✅ | ✅ | ✅ |
-| 5.1.1 | Pipeline Levels | — | K3 | ✅ | ⏳ | ✅ |
-| 5.1.2 | Config Management | — | K2 | ⏳ | ⏳ | — |
-| 5.1.3 | API Dependencies | — | K2 | ⏳ | ⏳ | — |
-| 6 | Reporting & Metrics | 150 | K4 | ⏳ | ⏳ | — |
-| 7 | Verifying TAS | 135 | K3 | ⏳ | ⏳ | — |
-| 8 | Continuous Improvement | 210 | K4 | ⏳ | ⏳ | — |
+| 5.1.1 | Pipeline Levels | — | K3 | ✅ | ✅ | ✅ |
+| 5.1.2 | Config Management | — | K2 | ✅ | ✅ | — |
+| 5.1.3 | API Dependencies | — | K2 | ✅ | ✅ | — |
+| 6.1.1 | Data Collection | — | K3 | ✅ | ✅ | — |
+| 6.1.2 | Data Analysis | — | K4 | ✅ | ✅ | — |
+| 6.1.3 | Test Progress Report | — | K2 | ✅ | ✅ | — |
+| 7.1.1 | Verify Environment | — | K3 | ✅ | ✅ | ✅ |
+| 7.1.2 | Correct Behavior | — | K3 | ✅ | ✅ | ✅ |
+| 7.1.3 | Unexpected Results | — | K3 | ✅ | ✅ | — |
+| 7.1.4 | Static Analysis | — | K3 | ✅ | ✅ | — |
+| 8.1.1 | Improving Tests | — | K4 | ✅ | ✅ | — |
+| 8.1.2 | Technical Analysis | — | K4 | ✅ | ✅ | — |
+| 8.1.3 | Restructure Testware | — | K4 | ✅ | ✅ | — |
+| 8.1.4 | Tool Opportunities | — | K4 | ✅ | ✅ | — |
+
+**ALL 8 CHAPTERS — NOTES AND SCENARIOS COMPLETE ✅**
 
 ---
 
-## Exact Next Steps — In Order
+## Remaining Work — In Priority Order
 
-### Step 1 — Complete Chapter 5.1.1 (FIRST TASK)
+### PRIORITY 1 — exam-prep/ (Do first — direct exam value)
 
-File: `scenarios_5_1_1_pipeline_levels.md`
-Location: `chapter-05-cicd-deployment/`
-Status: Content already written — needs to be
-pasted into VS Code and committed
+| File | Content |
+|------|---------|
+| `practice_questions.md` | 40+ exam-style questions across all 8 chapters, K2/K3/K4 mix, with answers |
+| `keyword_glossary.md` | Every examinable term defined — gTAA, TAS, TAF, TAA, contract testing, flaky test, mutation testing, etc. |
+| `chapter_summary.md` | One-page summary per chapter — rapid revision before exam |
+| `scenario_bank.md` | 20 complex multi-chapter scenarios combining concepts |
 
-Content covers 6 scenarios:
-1. Test level assignment to pipeline stages
-2. Approach 1 vs Approach 2 for safety-critical ABS
-3. Configuration tests catching missing ARXML
-4. Nightly regression vs per-commit pipeline
-5. Pipeline stage identification for ESP project
-6. Non-functional tests periodic pipeline
+### PRIORITY 2 — automotive-domain/ (Reference material)
 
-### Step 2 — Sub-Chapter 5.1.2
+| File | Content |
+|------|---------|
+| `ecu_test_concepts.md` | ECUTest architecture, test case structure, Python API |
+| `can_signal_validation_patterns.md` | CAN frame structure, ARXML, DBC, signal scaling patterns |
+| `hil_automation_architecture.md` | HIL rack components, test levels, automation integration |
+| `hil_rack_config.md` | Example HIL rack config YAML for ABS/ESP |
+| `tool_comparison_ecutest.md` | ECUTest vs pytest vs Robot Framework for automotive |
+| `test_environment_map.md` | SIL/HIL/XIL environment comparison with automation fit |
 
-File: `notes_5_1_2_config_management.md`
-Topic: Configuration Management for Testware
-Level: K2 — Understand
+### PRIORITY 3 — framework-prototype/ (Architect portfolio)
 
-Key topics to cover:
-- Three components: test environment config,
-  test data, test suites/test cases
-- Test environment config per pipeline stage
-- Feature toggle configuration
-- Testware released with SUT using same version
-- Tags and branches for version locking
-
-Automotive connections:
-- ARXML version locked to SW release tag
-- Calibration variant CSV per release
-- ECUTest config per HIL environment
-- Feature toggle for in-development features
-
-### Step 3 — Sub-Chapter 5.1.3
-
-File: `notes_5_1_3_api_dependencies.md`
-Topic: Test Automation Dependencies for API Infrastructure
-Level: K2 — Understand
-
-Key topics to cover:
-- API connections and business logic understanding
-- API documentation as test automation baseline
-- Contract testing definition and purpose
-- Consumer-driven vs provider-driven contract testing
-- Contract testing vs schema validation
-- How contract testing finds defects earlier in SDLC
-
-Automotive connections:
-- ECU diagnostic API (UDS) contract testing
-- Microservice equivalent in automotive = ECU services
-- CAN message format as API contract
-
-### Step 4 — Begin Chapter 6
-
-Chapter 6: Test Automation Reporting and Metrics
-Time: 150 minutes
-Level: K4 — Analyze
-
-Sub-chapters:
-```
-6.1.1 — Data collection methods (K3)
-6.1.2 — Data analysis for test results (K4)
-6.1.3 — Test progress report construction (K2)
-```
+| File | Content |
+|------|---------|
+| `README.md` | Architecture overview, setup instructions |
+| `requirements.txt` | Pinned dependencies |
+| `core/can_signal_monitor.py` | Full production-quality implementation |
+| `core/xcp_handler.py` | XCP connection with reconnect logic |
+| `core/test_logger.py` | Structured logging with levels |
+| `core/report_generator.py` | JUnit XML parser + HTML report generator |
+| `business_logic/abs_flows.py` | ABS test flow sequences |
+| `business_logic/esp_flows.py` | ESP test flow sequences |
+| `business_logic/fault_injection.py` | Fault injection sequences |
+| `tests/test_abs_activation.py` | Full test with fixtures |
+| `tests/test_esp_stability.py` | Full test with fixtures |
+| `tests/calibration_variants.csv` | DDT data for variant testing |
 
 ---
 
@@ -374,7 +354,7 @@ Sub-chapters:
 - Version control branching: feature/ release/ bugfix/
 - Static analysis in CI/CD pipeline for TAF code
 
-### Chapter 5 (partial)
+### Chapter 5
 - Build phase: component + SIL + TAF config + static analysis
 - Deployment phase: system + integration + acceptance
 - Configuration tests catch missing files before runtime
@@ -382,6 +362,82 @@ Sub-chapters:
 - Approach 1: tests as quality gate, auto rollback
 - Approach 2: separate pipeline, flexible, manual rollback
 - Non-functional tests in periodic pipeline
+- Three config management components:
+  environment config / test data / test suites
+- Feature toggle vs versioned release
+- ARXML must be tagged to SW release
+- Consumer-driven vs provider-driven contract testing
+- Contract testing in build stage — not integration stage
+- Schema validation ≠ contract testing
+- UDS spec = API contract, ARXML/DBC = schema
+
+### Chapter 6
+- Three data collection categories:
+  execution data / environment data / process data
+- Collection timing: before / during / after execution
+- Six core metrics: pass rate, execution time,
+  defect detection rate, flaky rate, coverage, MTTD
+- Trend analysis always over snapshot analysis
+- Four-question root cause framework
+- Failure cluster analysis by signal/component
+- Quality gates: metric + threshold + automated action
+- Flaky test = more dangerous than stable failing
+- False negative = most dangerous TAF failure mode
+- Mandatory report sections: scope, results, defects,
+  coverage, trend, risks, recommendation
+- Blocked ≠ Failed ≠ Error — report separately
+- Pass rate = Passed / (Passed + Failed) only
+- ISO 26262 report: ECU serial, firmware, traceability,
+  retention, tester identification mandatory
+
+### Chapter 7
+- Environment smoke test = mandatory pre-suite gate
+- Smoke test must complete in < 2 minutes
+- SUT state verification: firmware version,
+  no active DTCs, correct session before suite
+- Dependency version pinning prevents silent breakage
+- TAF must be unit tested — same standard as product code
+- False negative = most dangerous TAF defect
+- Four TAF verification methods:
+  known-input testing / mutation testing /
+  dual verification / oracle testing
+- Unused variable in assertion = active false negative
+- Bare except = masks all errors — always test passes
+- Three root cause categories:
+  product defect / test defect / environment issue
+- Signal-based wait with timeout — never hardcoded sleep
+- autouse fixture for ECU reset — test atomicity
+- Investigate and document before raising product defect
+- Static analysis severity: Critical blocks pipeline
+- W0612 unused variable = Critical
+- W0702 bare except = Critical
+- Complexity > 10 = High
+- Baseline approach for legacy codebase violations
+
+### Chapter 8
+- Continuous improvement is data-driven — not instinct
+- Declining defect detection with rising pass rate =
+  suite losing alignment with product
+- Flaky rate > 5% = mandatory investigation
+- Assertion density < 2 per test = false negative risk
+- One test — one behavior (split overloaded tests)
+- Parameterise duplicated tests — DDT for variants
+- Technical debt compounds — address proactively
+- Layer violations = architecture defect, not style
+- TAF unit test coverage target: 85%+ for core libraries
+- Runtime metrics: mean duration, P95 duration, flaky rate
+- Restructuring ≠ rewriting
+- Signal name registry = single update point
+- Fixture consolidation eliminates setup duplication
+- DDT from CSV — adding variant = one CSV row
+- Never restructure entire suite at once
+- Baseline pass rate before any restructuring
+- Must-haves override cost in tool assessment
+- Tool PoC mandatory before commitment
+- Parallel running mandatory during tool migration
+- AI generation requires human review before pipeline
+- EOL migration: 18-month plan, parallel running,
+  5-criterion decommission gate
 
 ---
 
@@ -404,6 +460,10 @@ Sub-chapters:
 | TAS | Test Automation Solution |
 | TAA | Test Automation Architecture |
 | gTAA | Generic Test Automation Architecture |
+| ASIL | Automotive Safety Integrity Level (A/B/C/D) |
+| ASPICE | Automotive SPICE — process assessment model |
+| DDT | Data-Driven Testing |
+| MTTD | Mean Time to Detect |
 
 ---
 
@@ -424,24 +484,21 @@ Sub-chapters:
 ## Instructions for Next LLM Session
 
 1. Read entire document before responding
-2. Confirm folder structure understood
-3. Confirm file naming convention understood
-4. Confirm markdown format rules understood
-5. FIRST TASK: commit `scenarios_5_1_1_pipeline_levels.md`
-   content that was already written in last session
-6. Then: `notes_5_1_2_config_management.md`
-7. Then: `scenarios_5_1_2_config_management.md`
-8. Then: `notes_5_1_3_api_dependencies.md`
-9. Then: `scenarios_5_1_3_api_dependencies.md`
-10. Then: Chapter 6 sub-chapters
-11. After each file: wait for commit confirmation
-12. Never skip ahead without commit confirmation
-13. Maintain automotive ECU context throughout
-14. Maintain senior architect mentor tone
-15. Never produce ASCII box art
-16. Always use markdown tables for comparisons
-17. Always end notes files with
-    `*Next: Sub-Chapter X.X.X — Title*`
+2. Confirm all 8 chapters notes and scenarios complete
+3. Confirm three remaining folders: exam-prep/,
+   automotive-domain/, framework-prototype/
+4. FIRST TASK: exam-prep/practice_questions.md
+5. Then: exam-prep/keyword_glossary.md
+6. Then: exam-prep/chapter_summary.md
+7. Then: exam-prep/scenario_bank.md
+8. Then: automotive-domain/ files (6 files)
+9. Then: framework-prototype/ files (12 files)
+10. After each file: wait for commit confirmation
+11. Never skip ahead without commit confirmation
+12. Maintain automotive ECU context throughout
+13. Maintain senior architect mentor tone
+14. Never produce ASCII box art
+15. Always use markdown tables for comparisons
 
 ---
 
@@ -460,19 +517,19 @@ Full context document:
 
 Please confirm you understand:
 1. My background and domain
-2. GitHub folder structure and file naming convention
-3. Markdown format rules — NO ASCII art, tables only
-4. Teaching methodology
-5. Exactly where we stopped
+2. All 8 chapters notes and scenarios are COMPLETE
+3. Three folders remaining: exam-prep/, automotive-domain/,
+   framework-prototype/
+4. Exact next task
 
-FIRST TASK: provide scenarios_5_1_1_pipeline_levels.md
-content for me to paste and commit.
-Then continue with 5.1.2 and onwards.
+FIRST TASK: provide exam-prep/practice_questions.md
+covering all 8 chapters with K2/K3/K4 questions and answers.
 ```
 
 ---
 
-*Context Transfer Document v3*
+*Context Transfer Document v4*
 *Updated: March 2026*
 *Syllabus: CTAL-TAE v2.0 (May 2024)*
 *Repo: github.com/saikumarreddy401/istqb-ctal-tae-learning*
+*All 8 chapters complete — exam-prep next*
